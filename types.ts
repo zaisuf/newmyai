@@ -34,6 +34,14 @@ export interface ThemeConfig {
   welcomeMessage: string;
   showWelcomeBubbles: boolean;
   suggestedQuestions: string[];
+  // Additional optional properties used by specific preview/components
+  headerColor1?: string;
+  headerColor2?: string;
+  headerColor3?: string;
+  profileSubtitle?: string;
+  profileBorderColor?: string;
+  showPhoneButton?: boolean;
+  showVideoButton?: boolean;
 }
 
 export interface AgentConfig {
