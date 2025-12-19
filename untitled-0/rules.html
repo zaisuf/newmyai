@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // New simplified public agent access
+    match /public_agents/{agentId} {
+      allow read: if true;
+      // Only allow write if the user is the owner (recorded in the document)
+      allow write: if request.auth != null && 
+                    (resource == null || resource.data.userId == request.auth.uid);
+    }
+
+    // Legacy support for collection group (if user creates the index later)
+    match /{path=**}/agents/{agentId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                    (path[1] == request.auth.uid || path[2] == request.auth.uid);
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      match /agents/{agentId} {
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == userId;
+
+        match /khowladge/{docId} {
+           allow read: if true;
+           allow write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+    }
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

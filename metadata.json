@@ -1,0 +1,7 @@
+{
+  "name": "Copy of ChatiFicial AI Builder",
+  "description": "ChatiFicial is a comprehensive AI Agent builder featuring a visual UI customizer and a drag-and-drop workflow editor. Design your chatbot's aesthetics and logic in one place.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
