@@ -3,15 +3,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { fetchPublicAgent } from '../../services/firebaseService';
-import PreviewWindow from '../../components/PreviewWindow';
-import VoicePreviewWindow from '../../components/VoicePreviewWindow';
-import { MessageSquare, X, AlertCircle, RefreshCw, Mic } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
+
+// Unified Embed Dispatcher Map
+
+import ThreeDEmbed from '../3dchat/embed.tsx';
+
+
+const TEMPLATE_REGISTRY: Record<string, React.FC<any>> = {
+  'chat': ChatflowEmbed,
+  '3dchat': ThreeDEmbed,
+  'frosted': FrostedEmbed,
+  'voice': VoiceEmbed,
+  // Add future templates (50+) here
+};
 
 const EmbedPage: React.FC = () => {
   const { agentId } = useParams<{ agentId: string }>();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  const mode = searchParams.get('mode') || 'full'; 
+  const mode = searchParams.get('mode') || 'chat'; // 'launcher' or 'chat'
 
   const [agent, setAgent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -20,7 +31,7 @@ const EmbedPage: React.FC = () => {
 
   const loadAgent = useCallback(async () => {
     if (!agentId) {
-      setError("Missing Agent ID.");
+      setError("Missing Unit Identification.");
       setLoading(false);
       return;
     }
@@ -32,11 +43,11 @@ const EmbedPage: React.FC = () => {
       if (data) {
         setAgent(data);
       } else {
-        setError(`Agent ID "${agentId}" not found.`);
+        setError(`Neural Unit ID "${agentId}" not found in current sector.`);
       }
     } catch (err: any) {
       console.error("Embed load error:", err);
-      setError(err.message || "Connection failed.");
+      setError(err.message || "Uplink failed.");
     } finally {
       setLoading(false);
     }
@@ -47,6 +58,7 @@ const EmbedPage: React.FC = () => {
   }, [loadAgent]);
 
   useEffect(() => {
+    // Force transparency for iframe integration
     document.body.style.backgroundColor = 'transparent';
     document.body.style.margin = '0';
     document.body.style.overflow = 'hidden';
@@ -63,7 +75,7 @@ const EmbedPage: React.FC = () => {
   if (loading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-transparent">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <Loader2 className="w-6 h-6 text-blue-500 animate-spin opacity-40" />
       </div>
     );
   }
@@ -71,76 +83,31 @@ const EmbedPage: React.FC = () => {
   if (error || !agent) {
     return (
       <div className="fixed inset-0 flex items-center justify-center p-6 bg-transparent">
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-red-100 text-center animate-[slideUp_0.3s_ease-out]">
-          <AlertCircle className="w-6 h-6 text-red-500 mx-auto mb-2" />
-          <p className="text-xs text-gray-500">{error || "Load failed."}</p>
+        <div className="bg-white p-6 rounded-3xl shadow-xl border border-red-50 text-center animate-[slideUp_0.3s_ease-out] max-w-[280px]">
+          <AlertCircle className="w-6 h-6 text-red-400 mx-auto mb-3" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Sync Error</p>
+          <p className="text-xs text-slate-500 font-medium leading-relaxed">{error || "Unit load failed."}</p>
         </div>
       </div>
     );
   }
 
-  const theme = agent.theme || {};
+  // Determine which template to render from the registry
+  const agentType = agent.type || 'chat';
+  const EmbedWrapper = TEMPLATE_REGISTRY[agentType] || ChatflowEmbed;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-transparent overflow-hidden">
-      {/* LAUNCHER MODE */}
-      {mode === 'launcher' && (
-        <div className="fixed inset-0 flex items-end justify-end p-4 bg-transparent pointer-events-none">
-          {agent.type === 'voice' ? (
-            <div className="pointer-events-auto">
-              <VoicePreviewWindow 
-                theme={theme} 
-                mode="launcher" 
-                onOpen={handleOpenChat}
-              />
-            </div>
-          ) : (
-            <div className="flex flex-col items-end gap-3 pointer-events-auto">
-              {showWelcome && theme.showWelcomeBubbles && theme.welcomeMessage && (
-                <div 
-                  className="relative max-w-[280px] p-4 pr-10 rounded-[20px] rounded-br-none shadow-2xl border border-white/10 animate-[fadeIn_0.5s_ease-out] cursor-pointer"
-                  style={{ backgroundColor: theme.launcherTagBg || '#1f2937', color: theme.launcherTagText || '#ffffff' }}
-                  onClick={handleOpenChat}
-                >
-                  <button onClick={(e) => { e.stopPropagation(); setShowWelcome(false); }} className="absolute top-2 right-2 w-5 h-5 bg-black/10 rounded-full flex items-center justify-center">
-                    <X className="w-3 h-3" />
-                  </button>
-                  <p className="text-[11px] font-medium leading-relaxed">{theme.welcomeMessage}</p>
-                </div>
-              )}
-              <button
-                onClick={handleOpenChat}
-                className="w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 group overflow-hidden border-4 border-white"
-                style={{ backgroundColor: theme.launcherBg || '#ef4444' }}
-              >
-                {theme.launcherLogoUrl ? (
-                  <img src={theme.launcherLogoUrl} alt="Logo" className="w-full h-full object-cover" />
-                ) : (
-                  <MessageSquare className="w-7 h-7" style={{ color: theme.launcherIconColor || '#ffffff' }} />
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* CHAT/SESSION MODE */}
-      {mode === 'chat' && (
-        <div className="w-full h-full animate-[slideUp_0.3s_ease-out] bg-transparent">
-          {agent.type === 'voice' ? (
-            <VoicePreviewWindow 
-              theme={theme} 
-              onClose={handleCloseChat} 
-            />
-          ) : (
-            <PreviewWindow 
-              theme={theme} 
-              agentConfig={agent.agentConfig || {}} 
-              onClose={handleCloseChat} 
-            />
-          )}
-        </div>
-      )}
+      <div className={`w-full h-full flex ${mode === 'launcher' ? 'items-end justify-end p-4 pointer-events-none' : 'animate-[slideUp_0.4s_ease-out] bg-transparent'}`}>
+        <EmbedWrapper 
+          agent={agent}
+          mode={mode}
+          onOpen={handleOpenChat}
+          onClose={handleCloseChat}
+          showWelcome={showWelcome}
+          setShowWelcome={setShowWelcome}
+        />
+      </div>
     </div>
   );
 };
